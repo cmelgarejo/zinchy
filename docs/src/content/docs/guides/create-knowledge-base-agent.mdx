@@ -1,0 +1,72 @@
+---
+title: Create a Knowledge Base Agent
+description: Step-by-step guide to creating an agent that can answer questions from your documents.
+---
+
+This guide walks you through creating a Knowledge Base agent — an agent that can read and answer questions from your documents, but cannot access anything else on the system.
+
+## Prerequisites
+
+- Zinchy is running (see [Quick Start](/getting-started/))
+- You have mounted at least one data directory (see [Mount Data Directories](/guides/mount-data-directories/))
+- You are logged in as an admin
+
+## 1. Mount your data directories
+
+Before creating a Knowledge Base agent, make sure the documents you want the agent to access are mounted under `/data/` in the Zinchy container. See the [Mount Data Directories](/guides/mount-data-directories/) guide for detailed instructions.
+
+## 2. Navigate to "New Agent"
+
+In the Zinchy sidebar, click the **+** button next to "Agents" to open the agent creation form.
+
+## 3. Select the "Knowledge Base" template
+
+Choose **Knowledge Base** from the template options. This template pre-configures the agent with safe file access tools (list and read files in approved directories).
+
+## 4. Enter a name and create
+
+Give your agent a descriptive name, for example "HR Policy Assistant" or "Engineering Docs". You can also add an optional tagline like "Answers questions about company HR policies". Then click **Create**.
+
+The agent is created with an auto-generated avatar and you are taken to its chat page. The Knowledge Base template pre-fills operating instructions (AGENTS.md) with document-answering guidelines. The agent has safe file tools enabled by default, but it does not yet know which directories to access. You need to configure that in the Permissions tab.
+
+## 5. Configure directory access
+
+Open the agent's settings by clicking the gear icon, then select the **Permissions** tab.
+
+Under **Safe Tools**, you will see that "List approved directories" and "Read approved files" are already enabled (because the Knowledge Base template includes them). Below the safe tools checkboxes, the **Allowed Directories** picker shows all directories found under `/data/`.
+
+Select the directories that contain the documents this agent should be able to read. For example, if you mounted your HR policies at `/data/hr-policies` and your engineering handbook at `/data/engineering`, select one or both.
+
+Click **Save** to apply the permissions.
+
+## 6. Chat with the agent
+
+Go back to the agent's chat and start asking questions. The agent can:
+
+- List files in the directories you selected
+- Read the contents of those files
+- Answer questions based on what it reads
+
+The agent **cannot**:
+
+- Access files outside the selected directories
+- Execute shell commands
+- Make network requests
+- Read system files
+
+## Customizing the agent
+
+Beyond permissions, you can customize your Knowledge Base agent through its settings tabs:
+
+- **General** — Change the name, tagline, avatar, or model
+- **Personality** — Choose a personality preset (e.g. The Professor for a formal tone) or write custom personality instructions
+- **Instructions** — Edit the operating instructions that tell the agent how to handle questions and cite documents
+- **Context** — Add organization-specific context like team structure or terminology
+
+## Changing permissions later
+
+You can update an agent's permissions at any time by returning to the **Permissions** tab. Add or remove directories, or enable additional tools as needed. Changes take effect after clicking **Save**.
+
+## How it works
+
+Under the hood, Zinchy uses an allow-list approach. The agent starts with no capabilities and only gets the tools an admin explicitly enables. For a full explanation, see [Agent Permissions](/concepts/agent-permissions/).

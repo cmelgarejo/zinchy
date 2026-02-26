@@ -1,0 +1,86 @@
+---
+title: Mount Data Directories
+description: How to make files available to Zinchy agents by mounting directories into the container.
+---
+
+Zinchy agents can only access files inside the `/data/` directory in the container. To make your documents available, you mount host directories into subdirectories of `/data/` using Docker volumes.
+
+## The `/data/` convention
+
+All agent-accessible files live under `/data/` inside the Zinchy container. This path is a Docker volume by default (`zinchy-data`), but you can bind-mount additional host directories as subdirectories.
+
+This convention provides a clear boundary: anything under `/data/` is potentially accessible to agents (depending on their permissions), and nothing outside `/data/` is.
+
+## Adding volumes in `docker-compose.yml`
+
+To mount a local folder, add a bind mount under the `zinchy` service's `volumes` section:
+
+```yaml
+services:
+  zinchy:
+    volumes:
+      - openclaw-config:/openclaw-config
+      - zinchy-data:/data
+      - openclaw-extensions:/openclaw-extensions
+      # Add your data directories here:
+      - /path/on/host/hr-policies:/data/hr-policies:ro
+      - /path/on/host/engineering-docs:/data/engineering-docs:ro
+```
+
+The `:ro` suffix mounts the directory as read-only, which is recommended since agents only need to read files.
+
+After updating `docker-compose.yml`, restart the stack:
+
+```bash
+docker compose down && docker compose up -d
+```
+
+## Examples
+
+### Local folder
+
+Mount a folder from your host machine:
+
+```yaml
+volumes:
+  - /home/admin/company-docs:/data/company-docs:ro
+```
+
+### NAS or network drive
+
+If your NAS is mounted on the host at `/mnt/nas/shared`, mount a subdirectory:
+
+```yaml
+volumes:
+  - /mnt/nas/shared/legal:/data/legal:ro
+  - /mnt/nas/shared/finance:/data/finance:ro
+```
+
+### Multiple directories
+
+You can mount as many directories as you need:
+
+```yaml
+volumes:
+  - /srv/docs/hr:/data/hr:ro
+  - /srv/docs/engineering:/data/engineering:ro
+  - /srv/docs/compliance:/data/compliance:ro
+```
+
+Each mounted directory appears as a separate selectable option in the Permissions tab when configuring an agent.
+
+## How directories appear in the UI
+
+When you configure an agent's permissions in the **Permissions tab** of Agent Settings, Zinchy scans `/data/` for subdirectories and displays them as selectable options. Each mounted directory shows up by name — for example, `/data/hr-policies` appears as "hr-policies".
+
+Only top-level subdirectories of `/data/` are listed. Nested directories within those are accessible to the agent but are not listed separately in the directory picker.
+
+## Verifying your mounts
+
+To check that your directories are correctly mounted, you can exec into the running container:
+
+```bash
+docker compose exec zinchy ls /data/
+```
+
+You should see your mounted directories listed.

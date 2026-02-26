@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npm test*)",
+      "Bash(npx tsc*)",
+      "Bash(npx drizzle-kit *)",
+      "Bash(docker compose *)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git status*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "WebSearch"
+    ],
+    "deny": [
+      "Read(.env*)",
+      "Read(secrets/**)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(rm -rf *)"
+    ]
+  }
+}

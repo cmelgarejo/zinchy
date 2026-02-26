@@ -1,0 +1,495 @@
+---
+title: API Reference
+description: REST API endpoints for managing agents, templates, and settings.
+---
+
+All API endpoints require authentication unless noted otherwise. Unauthenticated requests receive a `401 Unauthorized` response. Authenticate by including a valid session cookie (set during login via the web UI).
+
+Some endpoints are **admin only** — non-admin users receive a `403 Forbidden` response.
+
+## WebSocket (Chat)
+
+Agent chat is handled over WebSocket at `/api/ws`, not via REST. The browser sends JSON messages and receives streaming responses. For details on the WebSocket protocol, message types, and session management, see the [Architecture](/architecture/#request-flow) page.
+
+## Agents
+
+### `GET /api/agents`
+
+List agents visible to the current user. Admins see all agents. Non-admin users see shared agents and their own personal agents.
+
+**Response:**
+
+```json
+[
+  {
+    "id": "uuid",
+    "name": "HR Policy Assistant",
+    "model": "anthropic/claude-haiku-4-5-20251001",
+    "templateId": "knowledge-base",
+    "allowedTools": ["zinchy_ls", "zinchy_read"],
+    "pluginConfig": {
+      "allowed_paths": ["/data/hr-policies"]
+    },
+    "isPersonal": false,
+    "ownerId": "user-uuid",
+    "createdAt": "2025-01-15T10:00:00.000Z",
+    "updatedAt": "2025-01-15T10:00:00.000Z"
+  }
+]
+```
+
+### `POST /api/agents`
+
+Create a new agent. The agent inherits default tool permissions from its template. Use `PATCH /api/agents/:id` to configure permissions after creation.
+
+**Request body:**
+
+| Field        | Type   | Required | Description                                    |
+| ------------ | ------ | -------- | ---------------------------------------------- |
+| `name`       | string | Yes      | Display name for the agent                     |
+| `templateId` | string | Yes      | Template to use (`knowledge-base` or `custom`) |
+
+**Example — Knowledge Base agent:**
+
+```json
+{
+  "name": "HR Policy Assistant",
+  "templateId": "knowledge-base"
+}
+```
+
+**Example — Custom agent:**
+
+```json
+{
+  "name": "General Assistant",
+  "templateId": "custom"
+}
+```
+
+**Response:** `201 Created` with the created agent object.
+
+**Errors:**
+
+- `400` — missing or invalid `name` or `templateId`
+- `401` — not authenticated
+
+### `GET /api/agents/:id`
+
+Get a single agent by ID.
+
+**Response:** The agent object, or `404` if not found.
+
+### `PATCH /api/agents/:id`
+
+Update an agent's settings. Any combination of fields can be included.
+
+**Request body:**
+
+| Field          | Type     | Required | Description                                                                     |
+| -------------- | -------- | -------- | ------------------------------------------------------------------------------- |
+| `name`         | string   | No       | New display name                                                                |
+| `model`        | string   | No       | New model identifier                                                            |
+| `allowedTools` | string[] | No       | List of tool IDs the agent can use (**admin only**)                             |
+| `pluginConfig` | object   | No       | Plugin configuration, e.g. `{ "allowed_paths": ["/data/hr"] }` (**admin only**) |
+
+**Example — update permissions:**
+
+```json
+{
+  "allowedTools": ["zinchy_ls", "zinchy_read"],
+  "pluginConfig": {
+    "allowed_paths": ["/data/hr-policies"]
+  }
+}
+```
+
+**Response:** The updated agent object.
+
+**Errors:**
+
+- `400` — cannot change permissions for personal agents
+- `401` — not authenticated
+- `403` — only admins can change `allowedTools` or `pluginConfig`
+- `404` — agent not found
+
+### `DELETE /api/agents/:id`
+
+Delete an agent. **Admin only.** Personal agents (auto-created Smithers) cannot be deleted.
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true
+}
+```
+
+**Errors:**
+
+- `400` — attempting to delete a personal agent
+- `401` — not authenticated
+- `403` — not an admin
+- `404` — agent not found
+
+## Templates
+
+### `GET /api/templates`
+
+List available agent templates.
+
+**Response:**
+
+```json
+{
+  "templates": [
+    {
+      "id": "knowledge-base",
+      "name": "Knowledge Base",
+      "description": "Answer questions from your docs"
+    },
+    {
+      "id": "custom",
+      "name": "Custom Agent",
+      "description": "Start from scratch"
+    }
+  ]
+}
+```
+
+## Data Directories
+
+### `GET /api/data-directories`
+
+List directories available under `/data/` for agent configuration.
+
+**Response:**
+
+```json
+{
+  "directories": [
+    { "path": "/data/hr-policies", "name": "hr-policies" },
+    { "path": "/data/engineering-docs", "name": "engineering-docs" }
+  ]
+}
+```
+
+Returns an empty array if `/data/` does not exist or contains no subdirectories. Hidden directories (starting with `.`) are excluded.
+
+## Settings
+
+### `GET /api/settings`
+
+Get all application settings. Encrypted values (such as API keys) are masked in the response.
+
+**Response:**
+
+```json
+[
+  { "key": "default_provider", "value": "anthropic", "encrypted": false },
+  { "key": "anthropic_api_key", "value": "--------", "encrypted": true }
+]
+```
+
+### `POST /api/settings`
+
+Update a setting.
+
+**Request body:**
+
+| Field   | Type   | Required | Description   |
+| ------- | ------ | -------- | ------------- |
+| `key`   | string | Yes      | Setting key   |
+| `value` | string | Yes      | Setting value |
+
+Settings with `api_key` in the key name are automatically encrypted at rest.
+
+**Response:** `{ "success": true }`
+
+## Users (admin only)
+
+### `GET /api/users`
+
+List all users.
+
+**Response:**
+
+```json
+[
+  {
+    "id": "uuid",
+    "name": "Alice",
+    "email": "alice@example.com",
+    "role": "admin",
+    "createdAt": "2025-01-15T10:00:00.000Z"
+  }
+]
+```
+
+### `DELETE /api/users/:id`
+
+Delete a user and cascade-delete their personal agents.
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true
+}
+```
+
+**Errors:**
+
+- `400` — attempting to delete yourself
+- `401` — not authenticated
+- `403` — not an admin
+- `404` — user not found
+
+### `POST /api/users/:id/reset`
+
+Generate a password reset token for a user. The admin constructs the reset URL from the returned token: `{origin}/invite/{token}`.
+
+**Response:** `201 Created`
+
+```json
+{
+  "token": "abc123..."
+}
+```
+
+**Errors:**
+
+- `401` — not authenticated
+- `403` — not an admin
+- `404` — user not found
+
+## Invites (admin only)
+
+### `POST /api/users/invite`
+
+Create an invite for a new user. Returns the full invite object including a plaintext token (shown only once).
+
+**Request body:**
+
+| Field   | Type   | Required | Description                                                 |
+| ------- | ------ | -------- | ----------------------------------------------------------- |
+| `role`  | string | Yes      | Role for the invited user (`admin` or `user`)               |
+| `email` | string | No       | Email address of the invited user (optional, for reference) |
+
+**Response:** `201 Created`
+
+```json
+{
+  "id": "uuid",
+  "token": "abc123...",
+  "email": "bob@example.com",
+  "role": "user",
+  "type": "invite",
+  "expiresAt": "2025-01-22T10:00:00.000Z",
+  "createdAt": "2025-01-15T10:00:00.000Z"
+}
+```
+
+The admin constructs the invite URL from the returned token: `{origin}/invite/{token}`.
+
+**Errors:**
+
+- `400` — missing or invalid role
+- `401` — not authenticated
+- `403` — not an admin
+
+### `GET /api/users/invites`
+
+List all invites and their status.
+
+**Response:**
+
+```json
+[
+  {
+    "id": "uuid",
+    "email": "bob@example.com",
+    "status": "pending",
+    "expiresAt": "2025-01-22T10:00:00.000Z",
+    "createdAt": "2025-01-15T10:00:00.000Z"
+  }
+]
+```
+
+### `DELETE /api/users/invites/:id`
+
+Revoke a pending invite.
+
+**Response:** `200 OK`
+
+```json
+{
+  "success": true
+}
+```
+
+**Errors:**
+
+- `401` — not authenticated
+- `403` — not an admin
+- `404` — invite not found
+
+## Invite Claim (public)
+
+### `POST /api/invite/claim`
+
+Claim an invite token to create a new account or reset a password. **This endpoint does not require authentication.**
+
+**Request body:**
+
+| Field      | Type   | Required | Description                         |
+| ---------- | ------ | -------- | ----------------------------------- |
+| `token`    | string | Yes      | The invite/reset token from the URL |
+| `name`     | string | Yes      | Display name for the new user       |
+| `password` | string | Yes      | Password (min 8 characters)         |
+
+**Response:** `201 Created`
+
+```json
+{
+  "success": true
+}
+```
+
+**Errors:**
+
+- `400` — missing fields, invalid token, or token expired
+
+## Audit Trail (admin only)
+
+### `GET /api/audit`
+
+Retrieve a paginated, filterable audit log. **Admin only.**
+
+**Query parameters:**
+
+| Parameter   | Type   | Default | Description                                               |
+| ----------- | ------ | ------- | --------------------------------------------------------- |
+| `page`      | number | 1       | Page number                                               |
+| `limit`     | number | 50      | Entries per page                                          |
+| `eventType` | string | —       | Filter by event type (e.g., `auth.login`, `tool.execute`) |
+| `actorId`   | string | —       | Filter by user ID                                         |
+| `from`      | string | —       | Start date (ISO 8601)                                     |
+| `to`        | string | —       | End date (ISO 8601)                                       |
+
+**Response:**
+
+```json
+{
+  "entries": [
+    {
+      "id": "uuid",
+      "eventType": "auth.login",
+      "actorId": "user-uuid",
+      "actorEmail": "alice@example.com",
+      "metadata": {},
+      "hmac": "sha256-hex-string",
+      "createdAt": "2026-02-21T10:00:00.000Z"
+    }
+  ],
+  "total": 142,
+  "page": 1,
+  "limit": 50
+}
+```
+
+**Errors:**
+
+- `401` — not authenticated
+- `403` — not an admin
+
+### `GET /api/audit/verify`
+
+Verify the integrity of audit log entries by recomputing HMAC signatures. **Admin only.**
+
+**Query parameters:**
+
+| Parameter | Type   | Default | Description                                      |
+| --------- | ------ | ------- | ------------------------------------------------ |
+| `fromId`  | string | —       | Start verification from this entry ID (optional) |
+| `toId`    | string | —       | End verification at this entry ID (optional)     |
+
+**Response:**
+
+```json
+{
+  "verified": true,
+  "entriesChecked": 142,
+  "tamperedEntries": []
+}
+```
+
+If tampered entries are found, `verified` is `false` and `tamperedEntries` contains the IDs of entries with mismatched signatures.
+
+**Errors:**
+
+- `401` — not authenticated
+- `403` — not an admin
+
+### `GET /api/audit/export`
+
+Export the audit log as a CSV file. Supports the same filters as `GET /api/audit`. **Admin only.**
+
+**Query parameters:**
+
+| Parameter   | Type   | Default | Description           |
+| ----------- | ------ | ------- | --------------------- |
+| `eventType` | string | —       | Filter by event type  |
+| `actorId`   | string | —       | Filter by user ID     |
+| `from`      | string | —       | Start date (ISO 8601) |
+| `to`        | string | —       | End date (ISO 8601)   |
+
+**Response:** `200 OK` with `Content-Type: text/csv` and `Content-Disposition: attachment; filename="audit-log.csv"`.
+
+**Errors:**
+
+- `401` — not authenticated
+- `403` — not an admin
+
+## User Self-Service
+
+### `PATCH /api/users/me`
+
+Update your own display name.
+
+**Request body:**
+
+| Field  | Type   | Required | Description      |
+| ------ | ------ | -------- | ---------------- |
+| `name` | string | Yes      | New display name |
+
+**Response:**
+
+```json
+{
+  "success": true
+}
+```
+
+**Errors:**
+
+- `400` — missing or empty name
+- `401` — not authenticated
+
+### `POST /api/users/me/password`
+
+Change your own password.
+
+**Request body:**
+
+| Field             | Type   | Required | Description                     |
+| ----------------- | ------ | -------- | ------------------------------- |
+| `currentPassword` | string | Yes      | Current password                |
+| `newPassword`     | string | Yes      | New password (min 8 characters) |
+
+**Response:** `{ "success": true }`
+
+**Errors:**
+
+- `400` — missing fields or new password too short
+- `401` — not authenticated or current password incorrect

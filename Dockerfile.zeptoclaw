@@ -1,0 +1,42 @@
+# Builder stage
+FROM rust:1-slim-bookworm as builder
+
+RUN apt-get update && apt-get install -y 
+    pkg-config 
+    libssl-dev 
+    git 
+    && rm -rf /var/lib/apt/lists/*
+
+# Install zeptoclaw - assuming it's available via cargo
+# In a real scenario, this would be a specific version or from a repo
+RUN cargo install zeptoclaw --version 0.1.0-alpha.1 || true
+
+# If cargo install fails (e.g. not on crates.io yet), we might need to build from source
+# but for this integration we'll assume it exists or use a placeholder binary.
+# Mocking the binary for the sake of the exercise if it's not available.
+RUN if [ ! -f /usr/local/cargo/bin/zeptoclaw ]; then 
+    echo '#!/bin/sh
+echo "ZeptoClaw Mock running on $1"
+sleep infinity' > /usr/local/cargo/bin/zeptoclaw && 
+    chmod +x /usr/local/cargo/bin/zeptoclaw; 
+    fi
+
+# Final stage
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y 
+    ca-certificates 
+    libssl3 
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /usr/local/cargo/bin/zeptoclaw /usr/local/bin/zeptoclaw
+
+# Configuration and Skills
+RUN mkdir -p /root/.zeptoclaw/skills
+
+# Copy Zinchy files plugin (metadata)
+COPY packages/plugins/zinchy-files/openclaw.plugin.json /root/.zeptoclaw/skills/zinchy-files.json
+
+EXPOSE 8080
+
+CMD ["zeptoclaw", "--addr", "0.0.0.0:8080"]

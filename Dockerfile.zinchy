@@ -1,0 +1,34 @@
+FROM node:22-slim
+
+RUN corepack enable
+
+WORKDIR /app
+
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY packages/web/package.json packages/web/
+
+RUN pnpm install --frozen-lockfile
+
+COPY packages/web packages/web
+
+RUN cd packages/web && pnpm build
+
+EXPOSE 7777
+
+ENV PORT=7777
+ENV NODE_ENV=production
+
+WORKDIR /app/packages/web
+
+# Copy Zinchy plugins to OpenClaw extensions directory
+COPY packages/plugins/zinchy-files /openclaw-extensions/zinchy-files
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://localhost:7777/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+
+# Run as non-root user
+RUN groupadd -r zinchy && useradd -r -g zinchy -d /app zinchy
+RUN mkdir -p /app/secrets && chown -R zinchy:zinchy /app /app/secrets /openclaw-extensions
+USER zinchy
+
+CMD ["sh", "-c", "echo '[zinchy] Running database migrations...' && pnpm db:migrate && echo '[zinchy] Starting server...' && exec pnpm start"]

@@ -1,0 +1,84 @@
+---
+title: Quick Start
+description: Get Zinchy running in 5 minutes with Docker Compose.
+---
+
+This guide walks you through getting Zinchy up and running — from cloning the repo to chatting with your first AI agent.
+
+## Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) (v2+)
+- An API key from an LLM provider (Anthropic, OpenAI, or Google)
+
+## 1. Clone the repository
+
+```bash
+git clone https://github.com/heyzinchy/zinchy.git
+cd zinchy
+```
+
+## 2. Start the stack
+
+```bash
+docker compose up --build
+```
+
+This starts three services:
+
+- **Zinchy** — the web app on port 7777
+- **OpenClaw** — the AI agent runtime (internal, not exposed)
+- **PostgreSQL** — the database
+
+Wait until you see `Zinchy ready on http://localhost:7777` in the logs.
+
+## 3. Create your admin account
+
+Open [http://localhost:7777](http://localhost:7777) in your browser. The setup wizard appears automatically on first run.
+
+Enter your name, email, and password. This creates the first admin user.
+
+## 4. Configure your AI provider
+
+After creating your account, Zinchy redirects you to the provider setup page. Choose your LLM provider and enter your API key:
+
+| Provider  | Where to get a key                                          |
+| --------- | ----------------------------------------------------------- |
+| Anthropic | [console.anthropic.com](https://console.anthropic.com/)     |
+| OpenAI    | [platform.openai.com](https://platform.openai.com/api-keys) |
+| Google    | [aistudio.google.com](https://aistudio.google.com/apikey)   |
+
+Your API key is encrypted at rest using AES-256-GCM before being stored in the database.
+
+## 5. Chat with Smithers
+
+Once your provider is configured, Zinchy redirects you to the chat interface. Your default agent — **Smithers** — greets you automatically.
+
+Type a message and hit Enter. Smithers responds in real time via WebSocket.
+
+## 6. Invite your team
+
+Go to **Settings → Users** to invite team members. Enter their email address and Zinchy generates a one-time invite link.
+
+Each invited user gets their own personal **Smithers** agent, created automatically when they claim the invite. Invite links are valid for 7 days.
+
+## 7. Create a Knowledge Base Agent (optional)
+
+You can create agents from templates. Creating an agent is simple: pick a template, give it a name, add an optional tagline, and click Create. Each agent gets a unique auto-generated avatar.
+
+For example, a **Knowledge Base** agent can read files in directories you select — but has no access to anything else by default. After creating the agent, you can customize it through the agent settings tabs:
+
+- **General** — Change the agent's name, tagline, avatar, and model
+- **Personality** — Choose a personality preset or write custom personality instructions (SOUL.md)
+- **Instructions** — Define what the agent should do and how it should handle tasks (AGENTS.md)
+- **Context** — Add organization-specific context like company info or team conventions (USER.md)
+- **Permissions** — Configure which tools and directories the agent can access
+
+To try it out, mount a directory with documents into the Zinchy container and create an agent from the Knowledge Base template. See the [Create a Knowledge Base Agent](/guides/create-knowledge-base-agent/) guide for the full walkthrough.
+
+## What's next?
+
+- **[Installation](/installation/)** — Learn about environment variables, Docker volumes, and development setup
+- **[Architecture](/architecture/)** — Understand how Zinchy wraps OpenClaw and the request flow
+- **[Agent Permissions](/concepts/agent-permissions/)** — Learn how Zinchy restricts what agents can access
+- **[Audit Trail](/concepts/audit-trail/)** — Cryptographic audit logging for compliance and security
+- **[API Reference](/reference/api/)** — REST API endpoints for managing agents and settings

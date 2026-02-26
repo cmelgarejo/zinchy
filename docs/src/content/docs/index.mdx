@@ -1,0 +1,50 @@
+---
+title: Zinchy Documentation
+description: Enterprise AI agent platform built on OpenClaw. Self-hosted, offline-capable, open source.
+template: splash
+hero:
+  title: Zinchy Documentation
+  tagline: Enterprise governance for AI agents. Built on OpenClaw.
+  image:
+    file: ../../assets/zinchy-logo.png
+    alt: Zinchy — a friendly lobster with a headset
+  actions:
+    - text: Get Started
+      link: /getting-started/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/heyzinchy/zinchy
+      variant: minimal
+      icon: external
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+## What is Zinchy?
+
+Zinchy is an enterprise layer on top of [OpenClaw](https://github.com/openclaw/openclaw) — the open-source AI agent runtime. OpenClaw is powerful for individual users. Zinchy adds what teams need: permissions, audit trails, user management, and governance.
+
+We believe AI agents should run on **your** servers, with **your** data, under **your** control.
+
+## Current Status
+
+Zinchy is in early development. The core is working — setup, authentication, provider configuration, agent chat via OpenClaw, and cryptographic audit trail. We're building the remaining enterprise features (RBAC, plugins) next.
+
+<CardGrid>
+  <Card title="Quick Start" icon="rocket">
+    Get Zinchy running in 5 minutes with Docker Compose. [Read the guide
+    →](/getting-started/)
+  </Card>
+  <Card title="Installation" icon="setting">
+    Environment variables, Docker volumes, and development setup. [Full details
+    →](/installation/)
+  </Card>
+  <Card title="Architecture" icon="document">
+    How Zinchy wraps OpenClaw, the request flow, and the tech stack. [Learn more
+    →](/architecture/)
+  </Card>
+  <Card title="GitHub" icon="github">
+    Source code, issues, and discussions. [View repository
+    →](https://github.com/heyzinchy/zinchy)
+  </Card>
+</CardGrid>

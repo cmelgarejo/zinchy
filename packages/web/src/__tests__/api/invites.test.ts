@@ -1,0 +1,355 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
+
+// ── Mocks ────────────────────────────────────────────────────────────────
+
+vi.mock("@/lib/auth", () => ({
+  auth: vi.fn(),
+}));
+
+vi.mock("@/lib/invites", () => ({
+  createInvite: vi.fn(),
+}));
+
+vi.mock("@/db", () => ({
+  db: {
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockResolvedValue([]),
+    }),
+    delete: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([]),
+      }),
+    }),
+  },
+}));
+
+import { auth } from "@/lib/auth";
+import { createInvite } from "@/lib/invites";
+import { db } from "@/db";
+
+// ── POST /api/users/invite ───────────────────────────────────────────────
+
+describe("POST /api/users/invite", () => {
+  let POST: typeof import("@/app/api/users/invite/route").POST;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const mod = await import("@/app/api/users/invite/route");
+    POST = mod.POST;
+  });
+
+  it("returns 401 when not authenticated", async () => {
+    vi.mocked(auth).mockResolvedValueOnce(null);
+
+    const request = new NextRequest("http://localhost:7777/api/users/invite", {
+      method: "POST",
+      body: JSON.stringify({ role: "user" }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(401);
+
+    const body = await response.json();
+    expect(body.error).toBe("Unauthorized");
+  });
+
+  it("returns 403 when user role is not admin", async () => {
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "user-1", role: "user" },
+      expires: "",
+    } as ReturnType<typeof auth> extends Promise<infer T> ? T : never);
+
+    const request = new NextRequest("http://localhost:7777/api/users/invite", {
+      method: "POST",
+      body: JSON.stringify({ role: "user" }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(403);
+
+    const body = await response.json();
+    expect(body.error).toBe("Forbidden");
+  });
+
+  it("returns 400 when role is missing", async () => {
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "admin-1", role: "admin" },
+      expires: "",
+    } as ReturnType<typeof auth> extends Promise<infer T> ? T : never);
+
+    const request = new NextRequest("http://localhost:7777/api/users/invite", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+
+    const body = await response.json();
+    expect(body.error).toBe("Role must be 'admin' or 'user'");
+  });
+
+  it("returns 400 when role is invalid", async () => {
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "admin-1", role: "admin" },
+      expires: "",
+    } as ReturnType<typeof auth> extends Promise<infer T> ? T : never);
+
+    const request = new NextRequest("http://localhost:7777/api/users/invite", {
+      method: "POST",
+      body: JSON.stringify({ role: "superadmin" }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+
+    const body = await response.json();
+    expect(body.error).toBe("Role must be 'admin' or 'user'");
+  });
+
+  it("returns 201 with invite data on success", async () => {
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "admin-1", role: "admin" },
+      expires: "",
+    } as ReturnType<typeof auth> extends Promise<infer T> ? T : never);
+
+    const fakeInvite = {
+      id: "invite-1",
+      email: "newuser@test.com",
+      role: "user",
+      type: "invite",
+      token: "abc123",
+      createdAt: new Date(),
+      expiresAt: new Date(),
+    };
+    vi.mocked(createInvite).mockResolvedValueOnce(fakeInvite as never);
+
+    const request = new NextRequest("http://localhost:7777/api/users/invite", {
+      method: "POST",
+      body: JSON.stringify({ email: "newuser@test.com", role: "user" }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+
+    const body = await response.json();
+    expect(body.id).toBe("invite-1");
+    expect(body.email).toBe("newuser@test.com");
+    expect(body.token).toBe("abc123");
+
+    expect(createInvite).toHaveBeenCalledWith({
+      email: "newuser@test.com",
+      role: "user",
+      createdBy: "admin-1",
+    });
+  });
+
+  it("succeeds without email (email is optional)", async () => {
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "admin-1", role: "admin" },
+      expires: "",
+    } as ReturnType<typeof auth> extends Promise<infer T> ? T : never);
+
+    const fakeInvite = {
+      id: "invite-2",
+      role: "user",
+      type: "invite",
+      token: "def456",
+      createdAt: new Date(),
+      expiresAt: new Date(),
+    };
+    vi.mocked(createInvite).mockResolvedValueOnce(fakeInvite as never);
+
+    const request = new NextRequest("http://localhost:7777/api/users/invite", {
+      method: "POST",
+      body: JSON.stringify({ role: "user" }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+
+    const body = await response.json();
+    expect(body.id).toBe("invite-2");
+
+    expect(createInvite).toHaveBeenCalledWith({
+      email: undefined,
+      role: "user",
+      createdBy: "admin-1",
+    });
+  });
+});
+
+// ── GET /api/users/invites ───────────────────────────────────────────────
+
+describe("GET /api/users/invites", () => {
+  let GET: typeof import("@/app/api/users/invites/route").GET;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const mod = await import("@/app/api/users/invites/route");
+    GET = mod.GET;
+  });
+
+  it("returns 401 when not authenticated", async () => {
+    vi.mocked(auth).mockResolvedValueOnce(null);
+
+    const response = await GET();
+    expect(response.status).toBe(401);
+
+    const body = await response.json();
+    expect(body.error).toBe("Unauthorized");
+  });
+
+  it("returns 403 when user role is not admin", async () => {
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "user-1", role: "user" },
+      expires: "",
+    } as ReturnType<typeof auth> extends Promise<infer T> ? T : never);
+
+    const response = await GET();
+    expect(response.status).toBe(403);
+
+    const body = await response.json();
+    expect(body.error).toBe("Forbidden");
+  });
+
+  it("returns list of invites without tokenHash", async () => {
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "admin-1", role: "admin" },
+      expires: "",
+    } as ReturnType<typeof auth> extends Promise<infer T> ? T : never);
+
+    const fakeInvites = [
+      {
+        id: "invite-1",
+        email: "user1@test.com",
+        role: "user",
+        type: "invite",
+        createdAt: new Date("2026-01-01"),
+        expiresAt: new Date("2026-01-08"),
+        claimedAt: null,
+      },
+      {
+        id: "invite-2",
+        email: null,
+        role: "admin",
+        type: "invite",
+        createdAt: new Date("2026-01-02"),
+        expiresAt: new Date("2026-01-09"),
+        claimedAt: null,
+      },
+    ];
+
+    vi.mocked(db.select).mockReturnValueOnce({
+      from: vi.fn().mockResolvedValueOnce(fakeInvites),
+    } as never);
+
+    const response = await GET();
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.invites).toHaveLength(2);
+    expect(body.invites[0].id).toBe("invite-1");
+    expect(body.invites[0].email).toBe("user1@test.com");
+    // Ensure tokenHash is NOT in the response
+    expect(body.invites[0]).not.toHaveProperty("tokenHash");
+  });
+});
+
+// ── DELETE /api/users/invites/[inviteId] ─────────────────────────────────
+
+describe("DELETE /api/users/invites/[inviteId]", () => {
+  let DELETE: typeof import("@/app/api/users/invites/[inviteId]/route").DELETE;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const mod = await import("@/app/api/users/invites/[inviteId]/route");
+    DELETE = mod.DELETE;
+  });
+
+  it("returns 401 when not authenticated", async () => {
+    vi.mocked(auth).mockResolvedValueOnce(null);
+
+    const request = new NextRequest("http://localhost:7777/api/users/invites/invite-1", {
+      method: "DELETE",
+    });
+
+    const response = await DELETE(request, {
+      params: Promise.resolve({ inviteId: "invite-1" }),
+    });
+    expect(response.status).toBe(401);
+
+    const body = await response.json();
+    expect(body.error).toBe("Unauthorized");
+  });
+
+  it("returns 403 when user role is not admin", async () => {
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "user-1", role: "user" },
+      expires: "",
+    } as ReturnType<typeof auth> extends Promise<infer T> ? T : never);
+
+    const request = new NextRequest("http://localhost:7777/api/users/invites/invite-1", {
+      method: "DELETE",
+    });
+
+    const response = await DELETE(request, {
+      params: Promise.resolve({ inviteId: "invite-1" }),
+    });
+    expect(response.status).toBe(403);
+
+    const body = await response.json();
+    expect(body.error).toBe("Forbidden");
+  });
+
+  it("returns 404 when invite not found", async () => {
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "admin-1", role: "admin" },
+      expires: "",
+    } as ReturnType<typeof auth> extends Promise<infer T> ? T : never);
+
+    vi.mocked(db.delete).mockReturnValueOnce({
+      where: vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([]),
+      }),
+    } as never);
+
+    const request = new NextRequest("http://localhost:7777/api/users/invites/nonexistent", {
+      method: "DELETE",
+    });
+
+    const response = await DELETE(request, {
+      params: Promise.resolve({ inviteId: "nonexistent" }),
+    });
+    expect(response.status).toBe(404);
+
+    const body = await response.json();
+    expect(body.error).toBe("Invite not found");
+  });
+
+  it("returns 200 on successful deletion", async () => {
+    vi.mocked(auth).mockResolvedValueOnce({
+      user: { id: "admin-1", role: "admin" },
+      expires: "",
+    } as ReturnType<typeof auth> extends Promise<infer T> ? T : never);
+
+    vi.mocked(db.delete).mockReturnValueOnce({
+      where: vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([{ id: "invite-1" }]),
+      }),
+    } as never);
+
+    const request = new NextRequest("http://localhost:7777/api/users/invites/invite-1", {
+      method: "DELETE",
+    });
+
+    const response = await DELETE(request, {
+      params: Promise.resolve({ inviteId: "invite-1" }),
+    });
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.success).toBe(true);
+  });
+});

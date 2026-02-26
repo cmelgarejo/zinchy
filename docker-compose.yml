@@ -1,0 +1,71 @@
+services:
+  zinchy:
+    build:
+      context: .
+      dockerfile: Dockerfile.zinchy
+    ports:
+      - "7777:7777"
+    environment:
+      - DATABASE_URL=postgresql://zinchy:${DB_PASSWORD:-zinchy_dev}@db:5432/zinchy
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:7777}
+      - AUTH_TRUST_HOST=true
+      - OPENCLAW_WS_URL=ws://openclaw:18789
+      - ZEPTOCLAW_API_URL=http://zeptoclaw:8080
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-}
+    volumes:
+      - openclaw-config:/openclaw-config
+      - openclaw-extensions:/openclaw-extensions
+      - zinchy-secrets:/app/secrets
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      openclaw:
+        condition: service_started
+
+  openclaw:
+    build:
+      context: .
+      dockerfile: Dockerfile.openclaw
+    expose:
+      - "18789"
+    volumes:
+      - openclaw-config:/root/.openclaw
+      - openclaw-extensions:/root/.openclaw/extensions
+      - zinchy-data:/data
+    restart: unless-stopped
+
+  zeptoclaw:
+    build:
+      context: .
+      dockerfile: Dockerfile.zeptoclaw
+    expose:
+      - "8080"
+    volumes:
+      - openclaw-config:/root/.zeptoclaw
+      - zinchy-data:/data
+    restart: unless-stopped
+
+
+  db:
+    image: postgres:17
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=zinchy
+      - POSTGRES_USER=zinchy
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-zinchy_dev}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zinchy"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+  openclaw-config:
+  zinchy-data:
+  zinchy-secrets:
+  openclaw-extensions:

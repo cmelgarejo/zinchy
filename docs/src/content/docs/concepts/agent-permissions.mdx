@@ -1,0 +1,119 @@
+---
+title: Agent Permissions
+description: How Zinchy controls what each agent can do using an allow-list of tools and scoped directory access.
+---
+
+## Why agent permissions matter
+
+AI agents are powerful — but in an enterprise setting, they must be constrained. An agent that can read any file on the server or execute arbitrary commands is a liability. Zinchy enforces **per-agent permissions** so each agent can only use the tools an admin explicitly enables.
+
+## Allow-list approach
+
+Zinchy uses an **allow-list** model: agents have **no tools by default**. An admin must explicitly enable each tool an agent is allowed to use. This is the opposite of a deny-list approach where everything is allowed unless blocked — with Zinchy, nothing is allowed unless granted.
+
+This means a newly created agent cannot access files, run commands, or browse the web until an admin configures its permissions.
+
+## Tool categories
+
+Zinchy organizes tools into two categories:
+
+### Safe Tools
+
+Safe tools provide **sandboxed access** to directories the admin has approved. The agent cannot access anything outside those directories.
+
+| Tool                          | What it does                                      |
+| ----------------------------- | ------------------------------------------------- |
+| **List approved directories** | List files in directories the admin has selected  |
+| **Read approved files**       | Read file contents from approved directories only |
+
+When you enable a safe tool, a directory picker appears so you can select which directories under `/data/` the agent can access. Every file access request is validated against these directories at runtime.
+
+### Powerful Tools
+
+Powerful tools give the agent **direct access to the server**. Only enable them if you understand the risks.
+
+| Tool               | What it does                                      |
+| ------------------ | ------------------------------------------------- |
+| **Run commands**   | Execute shell commands on the server              |
+| **Read any file**  | Read any file on the system, without restrictions |
+| **Write files**    | Create and modify files on the system             |
+| **Browse the web** | Fetch web pages                                   |
+| **Search the web** | Perform web searches                              |
+
+An agent with powerful tools enabled has significantly broader capabilities. Use these only for trusted, internal use cases.
+
+## The Permissions tab
+
+Admins configure tool permissions in the **Permissions tab** of an agent's settings page. The settings page has five tabs — General, Personality, Instructions, Context, and Permissions. To access the Permissions tab:
+
+1. Open an agent's chat
+2. Click the settings icon (gear) to open Agent Settings
+3. Select the **Permissions** tab
+
+The Permissions tab shows all available tools grouped by category. Check or uncheck tools to control what the agent can do, then click **Save**.
+
+:::note
+The Permissions tab is only visible to admins and is not available for personal agents (the auto-created Smithers agent each user gets).
+:::
+
+### Configuring directory access
+
+When you enable a safe tool (like "List approved directories" or "Read approved files"), the **Allowed Directories** picker appears below the safe tools section. Select which directories under `/data/` this agent should be able to access.
+
+For example, if you mounted your HR policies at `/data/hr-policies`, select that directory to let the agent read those documents — and nothing else.
+
+See the [Mount Data Directories](/guides/mount-data-directories/) guide for instructions on making directories available.
+
+## How permissions reach OpenClaw
+
+OpenClaw uses a **deny-list** model internally: by default every tool group is available, and you block what you don't want. Zinchy's allow-list is the opposite — nothing is available until enabled.
+
+To bridge these two models, Zinchy converts the allow-list into a deny-list at config generation time using `computeDeniedGroups()`. This function takes the list of tool IDs an admin has enabled and returns all tool groups that should be blocked. The result is written into each agent's `tools.deny` array in the OpenClaw config.
+
+For example, if an admin enables only `zinchy_ls` and `zinchy_read` (safe tools), `computeDeniedGroups` returns all powerful tool groups (`computer`, `files`, `web_search`, `web_fetch`) so that OpenClaw blocks those capabilities for this agent.
+
+This conversion runs automatically whenever the OpenClaw config is regenerated — admins never interact with the deny-list directly.
+
+## Agent templates and default permissions
+
+When you create an agent, you pick a template. Each template comes with different default tool permissions:
+
+| Template           | Default tools                           | Use case                                           |
+| ------------------ | --------------------------------------- | -------------------------------------------------- |
+| **Knowledge Base** | `zinchy_ls`, `zinchy_read` (safe tools) | Answer questions from selected documents           |
+| **Custom Agent**   | None                                    | Start from scratch, configure permissions manually |
+
+After creating an agent, you can change its permissions at any time via the Permissions tab.
+
+## Defense in depth
+
+Zinchy does not rely on any single layer for security. Four layers work together:
+
+1. **Docker volumes** — only directories explicitly mounted into the container are accessible at all
+2. **Allow-list enforcement** — only tools an admin explicitly enables are available to the agent
+3. **Plugin path validation** — the `zinchy-files` plugin checks every requested path against the agent's allowed directories
+4. **Symlink resolution** — paths are resolved to their real location before validation, preventing symlink-based escapes
+
+If any one layer fails, the others still prevent unauthorized access.
+
+## Agent access control
+
+Not every user can see every agent. Zinchy enforces access rules:
+
+- **Admins** can access all agents — personal and shared
+- **Users** can access shared agents (created by anyone) and their own personal agent
+- Users **cannot** see or access other users' personal agents
+
+Only admins can view and modify the Permissions tab. Regular users can chat with agents they have access to, but cannot change what tools those agents use.
+
+:::note
+All permission changes are logged in the [audit trail](/concepts/audit-trail/). When an admin enables or disables tools for an agent, the change is recorded with the admin's identity, the affected agent, and the old and new permissions.
+:::
+
+## The `/data/` convention
+
+All agent-accessible files live under `/data/` inside the Zinchy container. This is mounted as a Docker volume, and you can bind-mount host directories into subdirectories of `/data/`.
+
+For example, if you mount your company's HR policies at `/data/hr-policies`, an agent configured to access that directory can read those documents — and nothing else.
+
+See the [Mount Data Directories](/guides/mount-data-directories/) guide for setup instructions.

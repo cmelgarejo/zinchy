@@ -1,0 +1,34 @@
+{
+  "name": "zinchy",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Enterprise AI agent platform built on OpenClaw",
+  "scripts": {
+    "dev": "pnpm --filter @zinchy/web dev",
+    "build": "pnpm --filter @zinchy/web build",
+    "test": "pnpm --filter @zinchy/web test",
+    "prepare": "husky"
+  },
+  "keywords": [],
+  "author": "Clemens Helm",
+  "license": "AGPL-3.0",
+  "packageManager": "pnpm@10.29.3",
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7"
+  },
+  "lint-staged": {
+    "packages/web/src/**/*.{ts,tsx}": [
+      "pnpm -C packages/web exec eslint --no-warn-ignored"
+    ],
+    "packages/web/**/*.{ts,tsx,js,mjs,cjs,json,css,md}": [
+      "pnpm -C packages/web exec prettier --write"
+    ],
+    "docs/src/**/*.{mdx,md}": [
+      "pnpm -C packages/web exec prettier --write"
+    ],
+    ".github/**/*.yml": [
+      "pnpm -C packages/web exec prettier --write"
+    ]
+  }
+}

@@ -1,0 +1,2 @@
+CREATE INDEX "agents_owner_id_idx" ON "agents" USING btree ("owner_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "chat_sessions_user_agent_idx" ON "chat_sessions" USING btree ("user_id","agent_id");

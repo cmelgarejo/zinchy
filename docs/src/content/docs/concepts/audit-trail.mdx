@@ -1,0 +1,132 @@
+---
+title: Audit Trail
+description: Cryptographic audit logging for compliance and security
+---
+
+## What is the audit trail?
+
+Zinchy includes a built-in audit trail that logs every significant action on the platform. Each entry is cryptographically signed with HMAC-SHA256 to detect tampering. The audit log is append-only — PostgreSQL triggers prevent any modification or deletion of existing entries.
+
+The audit trail is designed for **compliance and security**. It answers the question: "Who did what, and when?"
+
+## What gets logged
+
+Zinchy logs 12 event types across five categories:
+
+### Tool execution
+
+| Event Type     | Description                                                          |
+| -------------- | -------------------------------------------------------------------- |
+| `tool.execute` | An agent executed a tool (shell command, file read, web fetch, etc.) |
+| `tool.denied`  | An agent attempted to use a tool that was not in its allow-list      |
+
+### Authentication
+
+| Event Type    | Description                                            |
+| ------------- | ------------------------------------------------------ |
+| `auth.login`  | A user successfully logged in                          |
+| `auth.failed` | A login attempt failed (wrong password, unknown email) |
+| `auth.logout` | A user logged out                                      |
+
+### Agent management
+
+| Event Type      | Description                                     |
+| --------------- | ----------------------------------------------- |
+| `agent.created` | A new agent was created                         |
+| `agent.updated` | An agent's settings or permissions were changed |
+| `agent.deleted` | An agent was deleted                            |
+
+### User management
+
+| Event Type     | Description                          |
+| -------------- | ------------------------------------ |
+| `user.invited` | An admin invited a new user          |
+| `user.updated` | A user's profile or role was changed |
+| `user.deleted` | A user account was deleted           |
+
+### Configuration
+
+| Event Type       | Description                                                         |
+| ---------------- | ------------------------------------------------------------------- |
+| `config.changed` | A system configuration setting was changed (e.g., provider API key) |
+
+### What is NOT logged
+
+**Chat messages are not logged in the audit trail.** The audit trail records actions and events, not conversation content. Chat messages are stored separately in the conversation history managed by OpenClaw.
+
+## How HMAC signing works
+
+Each audit log entry is signed with **HMAC-SHA256** to ensure integrity:
+
+1. When an audit event occurs, Zinchy constructs a payload from the entry's fields (event type, actor, timestamp, metadata).
+2. The payload is signed using a server-side HMAC secret.
+3. The resulting signature is stored alongside the entry in the `hmac` column.
+4. The HMAC secret is auto-generated at startup if the `AUDIT_HMAC_SECRET` environment variable is not set.
+
+If anyone modifies a row directly in the database, the HMAC signature will no longer match — and integrity verification will flag the tampered entry.
+
+## How to verify integrity
+
+Admins can verify the integrity of the audit log in two ways:
+
+### Via the admin UI
+
+1. Navigate to the **Audit** page in the admin area.
+2. Click the **Verify Integrity** button.
+3. Zinchy recomputes HMAC signatures for all entries and reports any mismatches.
+
+### Via the API
+
+Send a `GET` request to `/api/audit/verify`. Optional `fromId` and `toId` parameters let you verify a specific range of entries.
+
+```bash
+curl -b session_cookie https://your-zinchy-instance/api/audit/verify
+```
+
+The response indicates whether all entries are intact:
+
+```json
+{
+  "verified": true,
+  "entriesChecked": 142,
+  "tamperedEntries": []
+}
+```
+
+If tampered entries are found, `verified` is `false` and `tamperedEntries` contains the IDs of the affected rows.
+
+## CSV export for compliance
+
+The audit log can be exported as a CSV file for external compliance tools, auditors, or archival:
+
+### Via the admin UI
+
+1. Navigate to the **Audit** page.
+2. Apply any desired filters (date range, event type, user).
+3. Click **Export CSV**.
+
+### Via the API
+
+Send a `GET` request to `/api/audit/export` with optional filter parameters (`eventType`, `actorId`, `from`, `to`).
+
+```bash
+curl -b session_cookie "https://your-zinchy-instance/api/audit/export?from=2026-01-01&to=2026-02-01" -o audit-log.csv
+```
+
+## Immutability guarantees
+
+The audit trail uses multiple layers to ensure entries cannot be modified:
+
+1. **PostgreSQL triggers** — `BEFORE UPDATE` and `BEFORE DELETE` triggers on the `auditLog` table raise an exception, preventing any modification or deletion at the database level.
+2. **HMAC signatures** — Even if triggers were somehow bypassed, any modification would invalidate the cryptographic signature.
+3. **Append-only API** — The application code only inserts entries. There is no update or delete endpoint for audit entries.
+
+## Fire-and-forget pattern
+
+Audit logging uses a fire-and-forget pattern: if logging fails (e.g., database connection issue), the main operation still succeeds. This ensures that audit logging never degrades the user experience or blocks critical operations.
+
+The trade-off is that in rare failure scenarios, an action might not be logged. For most enterprise deployments, this is preferable to having audit logging cause outages.
+
+## Access control
+
+Only **admins** can access the audit trail — both the UI page and the API endpoints. Regular users cannot view, verify, or export audit entries.

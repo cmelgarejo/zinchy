@@ -1,0 +1,30 @@
+/* Zinchy brand colors — based on heyzinchy.com */
+/* Primary: #ef4444 (red), Secondary: #f97316 (orange) */
+
+:root {
+  --sl-color-accent-low: hsl(10, 60%, 18%);
+  --sl-color-accent: hsl(4, 85%, 60%);
+  --sl-color-accent-high: hsl(10, 90%, 88%);
+
+  --sl-color-gray-1: hsl(240, 8%, 90%);
+  --sl-color-gray-2: hsl(240, 6%, 72%);
+  --sl-color-gray-3: hsl(240, 5%, 55%);
+  --sl-color-gray-4: hsl(240, 5%, 37%);
+  --sl-color-gray-5: hsl(240, 8%, 24%);
+  --sl-color-gray-6: hsl(240, 12%, 13%);
+  --sl-color-gray-7: hsl(240, 20%, 7%);
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: hsl(10, 80%, 93%);
+  --sl-color-accent: hsl(4, 85%, 50%);
+  --sl-color-accent-high: hsl(10, 70%, 25%);
+
+  --sl-color-gray-1: hsl(240, 20%, 7%);
+  --sl-color-gray-2: hsl(240, 12%, 20%);
+  --sl-color-gray-3: hsl(240, 5%, 37%);
+  --sl-color-gray-4: hsl(240, 5%, 55%);
+  --sl-color-gray-5: hsl(240, 6%, 80%);
+  --sl-color-gray-6: hsl(240, 8%, 93%);
+  --sl-color-gray-7: hsl(0, 0%, 100%);
+}

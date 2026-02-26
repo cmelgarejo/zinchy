@@ -1,0 +1,34 @@
+# Zinchy Documentation
+
+> Official documentation for Zinchy — the self-hosted enterprise AI agent platform built on OpenClaw.
+
+## What Zinchy Is
+
+Zinchy is a self-hosted, multi-user platform that turns OpenClaw into a team-ready AI agent system. It adds authentication, role-based access control, agent permissions, encrypted API key storage, and a web UI on top of the OpenClaw engine. Everything runs on your own infrastructure.
+
+## Documentation
+
+- [Introduction](https://docs.heyzinchy.com/): Overview and what Zinchy does
+- [Quick Start](https://docs.heyzinchy.com/getting-started/): Get running in minutes with Docker Compose
+- [Installation](https://docs.heyzinchy.com/installation/): Detailed setup instructions
+- [Architecture](https://docs.heyzinchy.com/architecture/): How Zinchy works (Next.js, PostgreSQL, OpenClaw Gateway, WebSocket bridge)
+- [Philosophy](https://docs.heyzinchy.com/concepts/philosophy/): What Zinchy stands for — Security + Ease, Smart Defaults, Agents as Personalities
+- [Agent Permissions](https://docs.heyzinchy.com/concepts/agent-permissions/): How agent access control works (mount points, file access, role-based)
+- [Audit Trail](https://docs.heyzinchy.com/concepts/audit-trail/): Cryptographic audit logging with HMAC-signed entries
+- [Agent Memory](https://docs.heyzinchy.com/explanation/agent-memory/): How agent memory and context works
+- [Hardening Guide](https://docs.heyzinchy.com/guides/hardening/): Security hardening for production deployments
+- [SBOM](https://docs.heyzinchy.com/reference/sbom/): Software Bill of Materials
+- [Create a Knowledge Base Agent](https://docs.heyzinchy.com/guides/create-knowledge-base-agent/): Step-by-step guide to building a knowledge base agent
+- [Mount Data Directories](https://docs.heyzinchy.com/guides/mount-data-directories/): How to give agents access to your files (PDFs, Word, PowerPoint on shared volumes)
+- [API Reference](https://docs.heyzinchy.com/reference/api/): REST API endpoints for agents, users, settings, and more
+
+## Key Facts
+
+- **License**: AGPL-3.0 (open source)
+- **Tech Stack**: Next.js, PostgreSQL (Drizzle ORM), Auth.js v5, Docker Compose
+- **Self-Hosted**: All data stays on customer infrastructure, no telemetry, no phone-home
+- **Auth**: Credentials + JWT + bcrypt + role-based (admin/user)
+- **Encryption**: AES-256-GCM for API keys at rest
+- **Source Code**: https://github.com/heyzinchy/zinchy
+- **Website**: https://heyzinchy.com
+- **Built by**: Clemens Helm (Helmcraft GmbH, Vienna, Austria)

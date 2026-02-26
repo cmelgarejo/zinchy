@@ -1,0 +1,22 @@
+services:
+  zinchy:
+    build:
+      context: .
+      dockerfile: Dockerfile.zinchy.dev
+    environment:
+      - DATABASE_URL=postgresql://zinchy:zinchy_dev@db:5432/zinchy
+      - NEXTAUTH_SECRET=dev-secret-do-not-use-in-production
+      - NEXTAUTH_URL=http://localhost:7777
+    volumes:
+      - ./packages/web:/app/packages/web
+      - /app/packages/web/node_modules
+      - /app/packages/web/.next
+  openclaw:
+    volumes:
+      - ./packages/plugins/zinchy-files:/root/.openclaw/extensions/zinchy-files
+      - ./sample-data:/data/sample-docs
+  db:
+    environment:
+      - POSTGRES_PASSWORD=zinchy_dev
+    ports:
+      - "5433:5432"

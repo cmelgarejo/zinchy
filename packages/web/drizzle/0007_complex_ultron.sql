@@ -1,0 +1,1 @@
+ALTER TABLE "chat_sessions" ADD COLUMN "runtime_activated" boolean DEFAULT false NOT NULL;

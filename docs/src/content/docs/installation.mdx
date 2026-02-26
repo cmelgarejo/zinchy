@@ -1,0 +1,142 @@
+---
+title: Installation
+description: Environment variables, Docker services, and development setup.
+---
+
+## System requirements
+
+- Docker Engine 20.10+ and Docker Compose v2+
+- 4 GB RAM minimum (for Zinchy + OpenClaw + PostgreSQL)
+- An LLM provider API key (Anthropic, OpenAI, or Google)
+
+## Docker Compose (recommended)
+
+The simplest way to run Zinchy. One command starts the full stack.
+
+```bash
+git clone https://github.com/heyzinchy/zinchy.git
+cd zinchy
+docker compose up --build
+```
+
+### Services
+
+The `docker-compose.yml` defines three services:
+
+| Service    | Image            | Port             | Purpose                       |
+| ---------- | ---------------- | ---------------- | ----------------------------- |
+| `zinchy`   | Custom (Next.js) | 7777 (exposed)   | Web UI, API, WebSocket bridge |
+| `openclaw` | Custom (Node.js) | 18789 (internal) | AI agent runtime              |
+| `db`       | `postgres:16`    | 5432 (internal)  | Database                      |
+
+Only port **7777** is exposed to the host. OpenClaw and PostgreSQL are only reachable within the Docker network.
+
+### Environment variables
+
+Create a `.env` file in the project root to override defaults:
+
+```bash
+# Database password (default: zinchy_dev)
+DB_PASSWORD=your-secure-password
+
+# Auth.js session secret (default: dev-secret-change-in-production)
+NEXTAUTH_SECRET=your-random-secret
+
+# Encryption key for API keys — 64 hex characters (auto-generated if omitted)
+ENCRYPTION_KEY=
+
+# HMAC secret for audit trail signing (auto-generated if not provided)
+AUDIT_HMAC_SECRET=
+```
+
+**`NEXTAUTH_SECRET`** — Used by Auth.js to sign JWT session tokens. Generate one with `openssl rand -hex 32`.
+
+**`ENCRYPTION_KEY`** — Used to encrypt provider API keys at rest (AES-256-GCM). If omitted, Zinchy auto-generates a key and persists it in the `zinchy-secrets` Docker volume. For production, we recommend setting this explicitly with `openssl rand -hex 32`.
+
+**`AUDIT_HMAC_SECRET`** — Used to sign audit trail entries with HMAC-SHA256. If omitted, Zinchy auto-generates a secret at startup. Set this explicitly if you need consistent signatures across restarts or deployments.
+
+**`DB_PASSWORD`** — Password for the PostgreSQL `zinchy` user.
+
+### Data persistence
+
+Docker volumes ensure data survives container restarts:
+
+| Volume                | Mounted at                                                               | Purpose                                           |
+| --------------------- | ------------------------------------------------------------------------ | ------------------------------------------------- |
+| `pgdata`              | `/var/lib/postgresql/data`                                               | PostgreSQL data                                   |
+| `openclaw-config`     | `/root/.openclaw` (OpenClaw), `/openclaw-config` (Zinchy)                | Shared OpenClaw configuration                     |
+| `zinchy-data`         | `/data` (OpenClaw)                                                       | Agent-accessible files (Knowledge Base documents) |
+| `zinchy-secrets`      | `/app/secrets` (Zinchy)                                                  | Auto-generated encryption and HMAC keys           |
+| `openclaw-extensions` | `/openclaw-extensions` (Zinchy), `/root/.openclaw/extensions` (OpenClaw) | Zinchy plugins for OpenClaw                       |
+
+### Port configuration
+
+To change the exposed port, update both `docker-compose.yml` and the `PORT` environment variable:
+
+```yaml
+# docker-compose.yml
+services:
+  zinchy:
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+```
+
+## Development mode
+
+For development with hot reload (code changes reflect immediately in the browser), use the dev-mode Docker override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+After the initial build, subsequent starts only need:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+```
+
+### What hot-reloads and what doesn't
+
+- **React components, pages, styles** — instant HMR via Next.js dev server
+- **server.ts** — requires container restart (`docker compose restart zinchy`)
+- **package.json / dependencies** — requires rebuild (`--build`)
+
+## Development setup
+
+For local development without Docker (except for the database and OpenClaw):
+
+```bash
+# Install dependencies
+pnpm install
+
+# Start database and OpenClaw in Docker (dev override exposes port 5433)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up db openclaw -d
+
+# Set database URL for local dev
+export DATABASE_URL=postgresql://zinchy:zinchy_dev@localhost:5433/zinchy
+
+# Run database migrations
+pnpm db:migrate
+
+# Start the dev server
+pnpm dev
+```
+
+The app starts at [http://localhost:7777](http://localhost:7777) with hot reload.
+
+### Available commands
+
+```bash
+pnpm dev          # Start dev server with hot reload
+pnpm build        # Production build
+pnpm test         # Run test suite
+pnpm lint         # Run ESLint
+pnpm format       # Format code with Prettier
+pnpm db:generate  # Generate new migration from schema changes
+pnpm db:migrate   # Apply pending migrations
+pnpm db:studio    # Open Drizzle Studio (database browser)
+```
+
+All commands run from the repository root and are forwarded to `packages/web/` via pnpm workspace.
