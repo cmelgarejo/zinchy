@@ -5,6 +5,10 @@
 ## Inspiration
 Zinchy is inspired by [Pinchy](https://example.com/pinchy), the minimalist agent UI, and aims to bring that same intuitive experience to the enterprise.
 
+## Quickstart
+
+Ready to get started? Check out our **[QUICKSTART.md](QUICKSTART.md)** for a step-by-step installation and setup guide.
+
 ## Features
 
 - 🚀 **Dual-Runtime Support**: Compatible with both OpenClaw (Node.js) and the ultra-lightweight ZeptoClaw (Rust).
